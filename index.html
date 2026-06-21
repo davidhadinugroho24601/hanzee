@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traditional Hanzi Academy - 繁體字學習</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti for winning quiz scores -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['Noto Serif TC', 'serif'],
+                        body: ['Inter', 'sans-serif']
+                    },
+                    colors: {
+                        parchment: {
+                            50: '#FDFBF7',
+                            100: '#FAF6EE',
+                            200: '#F5EFE0',
+                            300: '#EDE2CC',
+                            400: '#E2D0AF',
+                        },
+                        cinnabar: {
+                            50: '#FDF3F3',
+                            100: '#FBE6E6',
+                            500: '#D32F2F',
+                            700: '#9F1D35',
+                            800: '#7B1325',
+                            900: '#5C0916',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .mizige {
+            background-color: #faf6ee;
+            position: relative;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FAF6EE;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #7B1325;
+            border-radius: 3px;
+        }
+        /* Flashcard flip mechanism */
+        .card-perspective {
+            perspective: 1000px;
+        }
+        .card-inner {
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .card-inner.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="bg-parchment-100 font-body text-stone-800 min-h-screen flex flex-col selection:bg-cinnabar-100 selection:text-cinnabar-800">
+
+    <header class="bg-cinnabar-900 text-parchment-50 border-b-4 border-amber-500 shadow-lg sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('flashcards')">
+                <div class="bg-amber-500 text-cinnabar-900 w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl border border-parchment-50 font-serif">
+                    繁
+                </div>
+                <div>
+                    <h1 class="font-serif text-lg sm:text-xl font-black tracking-wide text-amber-400">Traditional Hanzi</h1>
+                    <p class="text-xs text-parchment-300 font-serif tracking-wider">繁體字 · Easy Study & Quiz</p>
+                </div>
+            </div>
+            
+            <!-- Stats and Actions -->
+            <div class="flex items-center space-x-4">
+                <div class="bg-cinnabar-800 border border-cinnabar-700 rounded-lg py-1 px-3 flex items-center space-x-2 text-xs sm:text-sm">
+                    <i class="fa-solid fa-fire text-orange-400"></i>
+                    <span class="font-semibold text-parchment-100" id="global-streak">0 Days</span>
+                </div>
+                <div class="bg-cinnabar-800 border border-cinnabar-700 rounded-lg py-1 px-3 flex items-center space-x-2 text-xs sm:text-sm">
+                    <i class="fa-solid fa-trophy text-amber-400"></i>
+                    <span class="font-semibold text-parchment-100" id="global-xp">0 XP</span>
+                </div>
+                <button onclick="showResetConfirmation()" class="text-parchment-300 hover:text-white transition text-xs flex items-center gap-1 bg-cinnabar-800/40 hover:bg-cinnabar-800 px-2 py-1.5 rounded" title="Reset your progress">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs Bar -->
+        <nav class="bg-cinnabar-850 border-t border-cinnabar-800/60">
+            <div class="max-w-6xl mx-auto px-4 flex justify-around sm:justify-start sm:space-x-8 text-sm font-serif">
+                <button onclick="switchTab('flashcards')" id="tab-flashcards" class="tab-btn py-3 px-3 text-amber-400 border-b-2 border-amber-400 font-semibold focus:outline-none transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-clone"></i> Study Deck
+                </button>
+                <button onclick="switchTab('quiz-lobby')" id="tab-quiz" class="tab-btn py-3 px-3 text-parchment-300 hover:text-parchment-50 border-b-2 border-transparent hover:border-parchment-300 focus:outline-none transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-circle-play"></i> Quiz Mode
+                </button>
+                <button onclick="switchTab('dictionary')" id="tab-dictionary" class="tab-btn py-3 px-3 text-parchment-300 hover:text-parchment-50 border-b-2 border-transparent hover:border-parchment-300 focus:outline-none transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-book-open"></i> Character Archive
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Custom Dialog Modal (Replaces native alerts) -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border-t-4 border-cinnabar-700 space-y-4">
+            <h3 class="text-lg font-serif font-black text-stone-950">Reset Progress?</h3>
+            <p class="text-xs text-stone-600 leading-relaxed">This action will permanently erase your total XP milestones, active study streaks, and historical scoring data. Are you sure you want to proceed?</p>
+            <div class="flex justify-end gap-2 text-xs">
+                <button onclick="hideResetConfirmation()" class="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-lg transition">Cancel</button>
+                <button onclick="confirmResetStats()" class="px-4 py-2 bg-cinnabar-700 hover:bg-cinnabar-850 text-white font-bold rounded-lg transition">Yes, Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-grow max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <section id="sec-flashcards" class="tab-section block max-w-2xl mx-auto space-y-6 animate-fadeIn">
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h2 class="text-2xl font-serif font-bold text-stone-900">Study Deck (記憶卡)</h2>
+                    <p class="text-stone-500 text-sm">Flip card to inspect phonetic spelling, meanings, and historical components.</p>
+                </div>
+                
+                <!-- Deck level select filter -->
+                <div class="flex items-center space-x-2">
+                    <label for="flashcard-level-select" class="text-xs text-stone-600 font-bold uppercase tracking-wider">Level:</label>
+                    <select id="flashcard-level-select" onchange="filterFlashcardsByLevel(this.value)" class="bg-white border border-stone-300 rounded-lg p-1.5 text-sm text-stone-800 focus:ring-2 focus:ring-cinnabar-700 font-semibold">
+                        <option value="all">All Decks</option>
+                        <option value="beginner">Beginner (Nature)</option>
+                        <option value="intermediate">Intermediate (Compounds)</option>
+                        <option value="advanced">Advanced (Complex)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Active Deck Status Bar -->
+            <div class="bg-white border border-stone-200 rounded-xl p-3 flex justify-between items-center text-sm text-stone-600 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-cinnabar-700"></i>
+                    <span>Card Progress: <strong id="flashcard-index-indicator" class="text-stone-900 font-mono">1/30</strong></span>
+                </div>
+                <button onclick="readAloudActiveCard()" class="text-cinnabar-700 hover:text-cinnabar-900 font-semibold flex items-center gap-1.5 focus:outline-none transition">
+                    <i class="fa-solid fa-volume-high"></i> Pronounce (TTS)
+                </button>
+            </div>
+
+            <!-- Beautiful Card Wrapper (Perspective container) -->
+            <div class="card-perspective w-full h-[450px] relative cursor-pointer" onclick="flipActiveCard()">
+                <div class="card-inner w-full h-full relative" id="study-card-inner">
+                    
+                    <!-- FRONT CARD (Hanzi Visual) -->
+                    <div class="card-front bg-white rounded-2xl p-6 shadow-md border-4 border-amber-600 flex flex-col justify-between overflow-hidden">
+                        <div class="absolute right-3 top-3 bg-stone-100 text-stone-500 font-semibold uppercase text-xxs px-3 py-1 rounded-full border border-stone-200 font-mono" id="card-front-level">
+                            BEGINNER
+                        </div>
+                        
+                        <!-- Drawing red mi zi ge style grid behind characters -->
+                        <div class="flex-grow flex flex-col items-center justify-center relative my-4">
+                            <div class="absolute inset-x-0 inset-y-0 max-w-[150px] max-h-[150px] sm:max-w-[185px] sm:max-h-[185px] m-auto border-2 border-dashed border-red-200 opacity-60 pointer-events-none flex items-center justify-center">
+                                <div class="absolute w-full border-t border-dashed border-red-200"></div>
+                                <div class="absolute h-full border-l border-dashed border-red-200"></div>
+                                <div class="absolute w-full h-full border border-dashed border-red-200 rotate-45 transform origin-center"></div>
+                                <div class="absolute w-full h-full border border-dashed border-red-200 -rotate-45 transform origin-center"></div>
+                            </div>
+                            <h3 class="text-7xl sm:text-9xl font-serif font-black text-stone-900 relative z-10 select-none" id="card-front-hanzi">
+                                國
+                            </h3>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-xs text-stone-400 uppercase tracking-widest">Tap Card to Flip & Reveal Details</p>
+                        </div>
+                    </div>
+
+                    <!-- BACK CARD (Meaning, Pinyin, Radicals & Example Sentences) -->
+                    <div class="card-back bg-gradient-to-br from-parchment-50 to-parchment-100 rounded-2xl p-6 shadow-md border-4 border-cinnabar-700 flex flex-col justify-between overflow-y-auto">
+                        <div class="space-y-4">
+                            <!-- Character Title -->
+                            <div class="text-center">
+                                <h4 class="text-3xl font-serif font-bold text-stone-900" id="card-back-hanzi">國</h4>
+                                <div class="inline-block bg-cinnabar-700 text-parchment-50 font-bold px-3 py-0.5 rounded-lg text-sm tracking-wide shadow-sm mt-1" id="card-back-pinyin">
+                                    guó
+                                </div>
+                            </div>
+
+                            <!-- Meanings & Breakdown Grid -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="bg-white rounded-xl p-3 border border-stone-200 shadow-sm sm:col-span-1">
+                                    <p class="text-xxs text-stone-400 font-bold uppercase tracking-wider">Radical / Strokes</p>
+                                    <p class="text-xs font-semibold text-stone-850 mt-1" id="card-back-radical">囗 (enclosure)</p>
+                                    <p class="text-sm text-stone-500 font-mono mt-0.5" id="card-back-strokes">11 strokes</p>
+                                </div>
+                                <div class="bg-white rounded-xl p-3 border border-stone-200 shadow-sm sm:col-span-2">
+                                    <p class="text-xxs text-stone-400 font-bold uppercase tracking-wider">English Definition</p>
+                                    <p class="text-sm font-bold text-stone-850 mt-1" id="card-back-meaning">country / nation / state</p>
+                                </div>
+                            </div>
+
+                            <!-- Example Sentence Block (NEW) -->
+                            <div class="bg-stone-50 rounded-xl p-3.5 border border-stone-200 space-y-1.5 relative group" onclick="event.stopPropagation();">
+                                <div class="flex justify-between items-center">
+                                    <p class="text-sm text-cinnabar-700 font-black uppercase tracking-wider flex items-center gap-1">
+                                        <i class="fa-solid fa-quote-left"></i> Example Sentence (例句)
+                                    </p>
+                                    <button onclick="readAloudSentenceText()" class="text-stone-400 hover:text-cinnabar-800 transition text-xs p-1" title="Pronounce Example Sentence">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                    </button>
+                                </div>
+                                <p class="text-lg font-serif font-semibold text-stone-900 tracking-wide" id="card-back-sentence">台灣是一個美麗的國家。</p>
+                                <p class="text-xxs font-mono text-stone-500" id="card-back-sentence-pinyin">Táiwān shì yīgè měilì de guójiā.</p>
+                                <p class="text-xs text-stone-700 italic border-t border-stone-200/50 pt-1" id="card-back-sentence-trans">Taiwan is a beautiful country.</p>
+                            </div>
+
+                            <!-- Cultural Mnemonic / breakdown -->
+                            <div class="bg-amber-50/50 rounded-xl p-3 border border-amber-100">
+                                <p class="text-xxs text-amber-800 font-bold uppercase tracking-wide flex items-center gap-1">
+                                    <i class="fa-solid fa-lightbulb"></i> Etymology & Mnemonic
+                                </p>
+                                <p class="text-xxs text-stone-700 leading-relaxed mt-1" id="card-back-explanation">
+                                    Surrounded by a giant border (囗) enclosing territories, containing weapons (或) defending boundaries.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="text-center pt-2 border-t border-stone-200">
+                            <span class="text-xxs text-stone-400 uppercase tracking-widest">Tap to flip back</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Card Deck Navigation Controls -->
+            <div class="flex justify-between items-center gap-4 pt-2">
+                <button onclick="previousFlashcard()" class="bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 font-semibold py-2.5 px-5 rounded-xl transition shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-chevron-left"></i> Previous
+                </button>
+                <div class="flex justify-between items-center gap-1 ">  
+                <button onclick="readAloudActiveCard()" class="bg-cinnabar-50 hover:bg-cinnabar-100 text-cinnabar-800 w-11 h-11 rounded-full flex items-center justify-center transition shadow-sm focus:outline-none" title="Pronounce character">
+                    <i class="fa-solid fa-volume-high text-base"></i>
+                </button>
+                 <button onclick="randomFlashcard()" class="bg-cinnabar-50 hover:bg-cinnabar-100 text-cinnabar-800 w-11 h-11 rounded-full flex items-center justify-center transition shadow-sm focus:outline-none" title="Pronounce character">
+                    <i class="fa-solid fa-arrows-rotate text-base"></i>
+                </button>
+                </div>
+                
+                <button onclick="nextFlashcard()" class="bg-cinnabar-700 hover:bg-cinnabar-800 text-white font-semibold py-2.5 px-5 rounded-xl transition shadow-sm flex items-center gap-2">
+                    Next <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="sec-quiz-lobby" class="tab-section hidden max-w-2xl mx-auto space-y-6 animate-fadeIn">
+            <div class="text-center space-y-2 max-w-xl mx-auto">
+                <h2 class="text-2xl font-serif font-black text-stone-900">Quiz Challenge (測驗模式)</h2>
+                <p class="text-stone-600 text-sm">Configure your parameters, challenge your recognition skills, and build XP.</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-md border border-stone-200 space-y-6">
+                <h3 class="text-base font-bold text-stone-900 border-b pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-cinnabar-700"></i> Choose Parameters
+                </h3>
+
+                <!-- Level selection -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-stone-600 uppercase tracking-wider">Vocabulary Level</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setQuizLevel('beginner')" id="btn-ql-beg" class="quiz-lvl-btn bg-cinnabar-50 text-cinnabar-800 border-2 border-cinnabar-700 py-2 rounded-xl text-xs font-bold">
+                            Beginner
+                        </button>
+                        <button onclick="setQuizLevel('intermediate')" id="btn-ql-int" class="quiz-lvl-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 py-2 rounded-xl text-xs font-bold">
+                            Intermediate
+                        </button>
+                        <button onclick="setQuizLevel('advanced')" id="btn-ql-adv" class="quiz-lvl-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 py-2 rounded-xl text-xs font-bold">
+                            Advanced
+                        </button>
+                        <button onclick="setQuizLevel('all')" id="btn-ql-all" class="quiz-lvl-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 py-2 rounded-xl text-xs font-bold">
+                            All Levels
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mode selection -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-stone-600 uppercase tracking-wider">Quiz Mode</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button onclick="setQuizMode('hanzi-to-meaning')" id="btn-qm-h2m" class="quiz-mode-btn bg-cinnabar-50 text-cinnabar-800 border-2 border-cinnabar-700 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center">
+                            <span>Hanzi ➔ Meaning</span> <i class="fa-solid fa-align-left text-cinnabar-700"></i>
+                        </button>
+                        <button onclick="setQuizMode('meaning-to-hanzi')" id="btn-qm-m2h" class="quiz-mode-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center">
+                            <span>Meaning ➔ Hanzi</span> <i class="fa-solid fa-shapes text-stone-400"></i>
+                        </button>
+                        <button onclick="setQuizMode('hanzi-to-pinyin')" id="btn-qm-h2p" class="quiz-mode-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center">
+                            <span>Hanzi ➔ Pinyin</span> <i class="fa-solid fa-language text-stone-400"></i>
+                        </button>
+                        <button onclick="setQuizMode('pinyin-to-hanzi')" id="btn-qm-p2h" class="quiz-mode-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center">
+                            <span>Pinyin ➔ Hanzi</span> <i class="fa-solid fa-keyboard text-stone-400"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Timed toggle element -->
+                <div class="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200">
+                    <div class="space-y-0.5">
+                        <p class="text-xs font-bold text-amber-900">Timer Challenge</p>
+                        <p class="text-xxs text-amber-700">10-second response limit per question for double points</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="timer-toggle-checkbox" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cinnabar-700"></div>
+                    </label>
+                </div>
+
+                <button onclick="initiateQuizExecution()" class="w-full bg-gradient-to-r from-cinnabar-700 to-cinnabar-800 hover:from-cinnabar-800 hover:to-cinnabar-900 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all text-center font-serif flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i> Start Quiz (開始測驗)
+                </button>
+            </div>
+        </section>
+
+        <section id="sec-quiz-active" class="tab-section hidden max-w-xl mx-auto space-y-4 animate-fadeIn">
+            <!-- Header status & Timer -->
+            <div class="bg-white rounded-xl p-3 shadow-sm border border-stone-200 flex justify-between items-center gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm font-bold text-stone-900 font-mono" id="quiz-question-counter">Question 1/10</span>
+                        <span class="text-xxs font-semibold bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full" id="quiz-level-indicator">BEGINNER</span>
+                    </div>
+                </div>
+                
+                <!-- Timer Pill -->
+                <div id="quiz-timer-container" class="bg-red-50 text-cinnabar-700 font-bold px-3 py-1 rounded-lg border border-red-200 flex items-center gap-1.5 text-xs">
+                    <i class="fa-regular fa-clock text-sm animate-pulse"></i>
+                    <span id="quiz-timer-val" class="font-mono text-base">10s</span>
+                </div>
+            </div>
+
+            <!-- Quiz Progress bar -->
+            <div class="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
+                <div id="quiz-progress-bar" class="bg-gradient-to-r from-cinnabar-700 to-amber-500 h-full w-0 transition-all duration-300"></div>
+            </div>
+
+            <!-- Question Presentation Card -->
+            <div class="bg-white rounded-2xl p-6 shadow-md border border-stone-200 flex flex-col items-center justify-center space-y-4 min-h-[180px]">
+                <div class="text-center space-y-2">
+                    <h3 id="quiz-question-main" class="text-5xl sm:text-6xl font-serif font-black text-stone-900 select-none">
+                        國
+                    </h3>
+                    <p id="quiz-question-hint" class="text-stone-500 text-xs font-semibold max-w-md">
+                        Identify the English definition for this character.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Answer options -->
+            <div class="grid grid-cols-1 gap-2.5" id="quiz-options-container">
+                <!-- Dynamically populated buttons -->
+            </div>
+
+            <!-- Quiz feedback block -->
+            <div id="quiz-feedback-box" class="hidden rounded-xl p-3.5 border flex items-start gap-3 transition">
+                <div class="text-xl" id="quiz-feedback-icon"></div>
+                <div class="space-y-1 w-full">
+                    <div class="flex justify-between items-start gap-2">
+                        <p class="font-bold text-sm" id="quiz-feedback-title"></p>
+                    </div>
+                    <p class="text-sm opacity-90" id="quiz-feedback-desc"></p>
+                    
+                    <!-- Integrated mini sentence guide on answer feedback -->
+                    <div id="quiz-feedback-sentence-block" class="mt-2 pt-2 border-t border-black/10 text-sm space-y-0.5 hidden">
+                        <p class="font-bold uppercase tracking-wider text-xs text-cinnabar-700 opacity-80">Example Context (例句) <button onclick="readAloudText(document.getElementById('quiz-feedback-sentence-zh').textContent)" class="hover:text-cinnabar-500" title="Listen Sentence">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </button>:</p>
+                        
+                        <p class="font-serif font-semibold" >
+                            <span id="quiz-feedback-sentence-zh"></span>
+                            <span id="quiz-feedback-sentence-pinyin"></span>
+                        </p>
+                        <p class="italic text-stone-600" id="quiz-feedback-sentence-en"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Next navigation -->
+            <div class="flex justify-end pt-1">
+                <button id="quiz-next-btn" onclick="nextQuizQuestion()" class="hidden bg-cinnabar-800 hover:bg-cinnabar-900 text-white font-semibold py-2 px-6 rounded-lg transition shadow flex items-center gap-2 text-xs">
+                    Next Question <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="sec-quiz-results" class="tab-section hidden max-w-md mx-auto space-y-6 animate-fadeIn">
+            <div class="bg-white rounded-2xl p-6 shadow-md border border-stone-200 text-center space-y-6">
+                <div class="space-y-2">
+                    <div class="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center text-amber-500 text-2xl mx-auto">
+                        <i class="fa-solid fa-scroll"></i>
+                    </div>
+                    <h2 class="text-2xl font-serif font-black text-stone-900">Quiz Completed!</h2>
+                    <p class="text-stone-500 text-xs">Review your performance indicators and XP reward.</p>
+                </div>
+
+                <!-- Scores grid -->
+                <div class="grid grid-cols-3 gap-2 border-y border-stone-100 py-4">
+                    <div>
+                        <p class="text-stone-400 text-xxs font-bold uppercase">Correct</p>
+                        <h4 class="text-lg font-black text-stone-900 mt-0.5" id="res-correct-fraction">0/10</h4>
+                    </div>
+                    <div>
+                        <p class="text-stone-400 text-xxs font-bold uppercase">Accuracy</p>
+                        <h4 class="text-lg font-black text-emerald-600 mt-0.5" id="res-accuracy-pct">0%</h4>
+                    </div>
+                    <div>
+                        <p class="text-stone-400 text-xxs font-bold uppercase">XP Gain</p>
+                        <h4 class="text-lg font-black text-amber-500 mt-0.5" id="res-xp-gained">+0</h4>
+                    </div>
+                </div>
+
+                <!-- Review incorrect answers list -->
+                <div id="incorrect-review-container" class="text-left space-y-2 hidden">
+                    <p class="text-xxs font-bold text-stone-500 uppercase">Review Mistakes:</p>
+                    <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1" id="incorrect-review-list">
+                        <!-- Dynamic list of wrong questions -->
+                    </div>
+                </div>
+
+                <!-- Action choices -->
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button onclick="switchTab('quiz-lobby')" class="bg-stone-100 hover:bg-stone-200 text-stone-850 font-semibold py-2 px-4 rounded-xl text-xs transition">
+                        Lobby Options
+                    </button>
+                    <button onclick="restartQuizWithCurrentConfig()" class="bg-cinnabar-700 hover:bg-cinnabar-800 text-white font-semibold py-2 px-4 rounded-xl text-xs transition shadow">
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="sec-dictionary" class="tab-section hidden space-y-6 animate-fadeIn">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-stone-200 pb-4">
+                <div>
+                    <h2 class="text-2xl font-serif font-bold text-stone-900">Character Archive (漢字字典)</h2>
+                    <p class="text-stone-500 text-sm">A reference explorer to lookup characters, verify details, and review spelling.</p>
+                </div>
+                
+                <!-- Search filter input -->
+                <div class="relative w-full sm:w-64">
+                    <input type="text" id="dict-search" oninput="filterDictionaryList()" placeholder="Search character, radical, pinyin..." class="w-full bg-white border border-stone-300 rounded-xl py-2 pl-9 pr-4 text-xs focus:ring-2 focus:ring-cinnabar-700 focus:outline-none">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-stone-400 text-xs"></i>
+                </div>
+            </div>
+
+            <!-- Output character list -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="dictionary-grid">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer block -->
+    <footer class="bg-stone-900 text-stone-400 border-t-2 border-amber-500 py-6 px-4 mt-12 text-xs">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
+            <div>
+                <h4 class="font-serif text-amber-400 font-bold tracking-widest text-xs uppercase">TRADITIONAL HANZI ACADEMY</h4>
+                <p class="text-sm text-stone-500 mt-1">Study Deck, Quiz, and Character Archive Companion.</p>
+            </div>
+            
+            <div class="flex gap-4 text-stone-500">
+                <a href="#" onclick="switchTab('flashcards'); return false;" class="hover:text-amber-400 transition">Deck</a>
+                <a href="#" onclick="switchTab('quiz-lobby'); return false;" class="hover:text-amber-400 transition">Quiz</a>
+                <a href="#" onclick="switchTab('dictionary'); return false;" class="hover:text-amber-400 transition">Characters</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="vocab.js"></script>
+
+    <script>
+        let userXP = parseInt(localStorage.getItem("hanzi_xp_simple")) || 0;
+        let userStreak = parseInt(localStorage.getItem("hanzi_streak_simple")) || 0;
+        let lastQuizDate = localStorage.getItem("hanzi_last_quiz_date_simple") || "";
+        
+        let activeFlashcardDeck = [...hanziDatabase];
+        let currentFlashcardIndex = 0;
+
+        // Quiz State Config
+        let quizLevel = "beginner";
+        let quizMode = "hanzi-to-meaning";
+        let activeQuizQuestionsList = [];
+        let currentQuestionIndex = 0;
+        let quizScore = 0;
+        let quizTimerInterval = null;
+        let quizTimeLimit = 10;
+        let activeTimeRemaining = 0;
+        let quizIncorrectList = [];
+        let doubleXPForTimer = true;
+
+        window.onload = function() {
+            verifyStreakIntegrity();
+            updateGlobalStatsUI();
+            filterFlashcardsByLevel("all");
+            renderDictionary(hanziDatabase);
+        };
+
+        // Tab Switching Mechanism
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-section').forEach(element => {
+                element.classList.add('hidden');
+                element.classList.remove('block');
+            });
+
+            document.querySelectorAll('.tab-btn').forEach(button => {
+                button.classList.add('text-parchment-300', 'border-transparent');
+                button.classList.remove('text-amber-400', 'border-amber-400', 'font-semibold');
+            });
+
+            let activeSection;
+            if (tabId.startsWith('quiz-')) {
+                activeSection = document.getElementById(`sec-${tabId}`);
+                document.getElementById('tab-quiz').classList.add('text-amber-400', 'border-amber-400', 'font-semibold');
+                document.getElementById('tab-quiz').classList.remove('text-parchment-300', 'border-transparent');
+            } else {
+                activeSection = document.getElementById(`sec-${tabId}`);
+                document.getElementById(`tab-${tabId}`).classList.add('text-amber-400', 'border-amber-400', 'font-semibold');
+                document.getElementById(`tab-${tabId}`).classList.remove('text-parchment-300', 'border-transparent');
+            }
+
+            activeSection.classList.remove('hidden');
+            activeSection.classList.add('block');
+            
+            // Clean active timers if exiting quiz
+            if (!tabId.startsWith('quiz-active')) {
+                clearInterval(quizTimerInterval);
+            }
+        }
+    </script>
+
+    <script>
+        function addXP(amount) {
+            userXP += amount;
+            localStorage.setItem("hanzi_xp_simple", userXP);
+            updateGlobalStatsUI();
+        }
+
+        function verifyStreakIntegrity() {
+            const today = new Date().toDateString();
+            if (lastQuizDate) {
+                const lastDate = new Date(lastQuizDate);
+                const differenceInDays = (new Date(today).getTime() - lastDate.getTime()) / (1000 * 3600 * 24);
+                if (differenceInDays > 1.9) {
+                    userStreak = 0;
+                    localStorage.setItem("hanzi_streak_simple", 0);
+                }
+            } else {
+                userStreak = 0;
+            }
+        }
+
+        function incrementStreak() {
+            const today = new Date().toDateString();
+            if (lastQuizDate !== today) {
+                userStreak += 1;
+                localStorage.setItem("hanzi_streak_simple", userStreak);
+                localStorage.setItem("hanzi_last_quiz_date_simple", today);
+                lastQuizDate = today;
+                updateGlobalStatsUI();
+            }
+        }
+
+        // Custom modal confirmations (prevents alert blocks)
+        function showResetConfirmation() {
+            document.getElementById('custom-confirm-modal').classList.remove('hidden');
+        }
+
+        function hideResetConfirmation() {
+            document.getElementById('custom-confirm-modal').classList.add('hidden');
+        }
+
+        function confirmResetStats() {
+            userXP = 0;
+            userStreak = 0;
+            lastQuizDate = "";
+            localStorage.setItem("hanzi_xp_simple", 0);
+            localStorage.setItem("hanzi_streak_simple", 0);
+            localStorage.removeItem("hanzi_last_quiz_date_simple");
+            updateGlobalStatsUI();
+            hideResetConfirmation();
+        }
+
+        function updateGlobalStatsUI() {
+            document.getElementById('global-streak').textContent = `${userStreak} Day` + (userStreak !== 1 ? 's' : '');
+            document.getElementById('global-xp').textContent = `${userXP} XP`;
+        }
+
+        // Chinese Speech Synthesis Utility
+        function readAloudText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                const voices = window.speechSynthesis.getVoices();
+                const targetVoice = voices.find(v => v.lang.includes('zh-TW')) || 
+                                    voices.find(v => v.lang.includes('zh')) || 
+                                    voices[0];
+                if (targetVoice) {
+                    utterance.voice = targetVoice;
+                }
+                utterance.rate = 0.82; 
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => {};
+        }
+    </script>
+
+    <script>
+        function filterFlashcardsByLevel(level) {
+            if (level === "all") {
+                activeFlashcardDeck = [...hanziDatabase];
+            } else {
+                activeFlashcardDeck = hanziDatabase.filter(item => item.level === level);
+            }
+            currentFlashcardIndex = 0;
+            previousFlashcardIndex = 0;
+            renderActiveFlashcard();
+        }
+
+        function renderActiveFlashcard() {
+            if (activeFlashcardDeck.length === 0) return;
+            const card = activeFlashcardDeck[currentFlashcardIndex];
+            
+            // Instantly unflip card
+            document.getElementById('study-card-inner').classList.remove('is-flipped');
+            
+            setTimeout(() => {
+                document.getElementById('card-front-hanzi').textContent = card.hanzi;
+                document.getElementById('card-front-level').textContent = card.level.toUpperCase();
+                
+                document.getElementById('card-back-hanzi').textContent = card.hanzi;
+                document.getElementById('card-back-pinyin').textContent = card.pinyin;
+                document.getElementById('card-back-meaning').textContent = card.meaning;
+                document.getElementById('card-back-radical').textContent = card.radical;
+                document.getElementById('card-back-strokes').textContent = `${card.strokes} strokes`;
+                document.getElementById('card-back-explanation').textContent = card.explanation;
+                
+                // Set sentence example values
+                document.getElementById('card-back-sentence').textContent = card.sentence;
+                document.getElementById('card-back-sentence-pinyin').textContent = card.sentencePinyin;
+                document.getElementById('card-back-sentence-trans').textContent = card.sentenceTranslation;
+                
+                // Adjust sizes depending on Hanzi length to prevent layout breakage
+                if (card.hanzi.length > 2) {
+                    document.getElementById('card-front-hanzi').className = "text-5xl sm:text-6xl font-serif font-black text-stone-900 relative z-10 select-none";
+                } else if (card.hanzi.length === 2) {
+                    document.getElementById('card-front-hanzi').className = "text-6xl sm:text-7xl font-serif font-black text-stone-900 relative z-10 select-none";
+                } else {
+                    document.getElementById('card-front-hanzi').className = "text-7xl sm:text-9xl font-serif font-black text-stone-900 relative z-10 select-none";
+                }
+                
+                document.getElementById('flashcard-index-indicator').textContent = `${currentFlashcardIndex + 1} / ${activeFlashcardDeck.length}`;
+            }, 100);
+        }
+
+        function flipActiveCard() {
+            document.getElementById('study-card-inner').classList.toggle('is-flipped');
+        }
+
+        const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        
+        function randomFlashcard() {
+            dice = randomInt(1, 2);
+            if (dice == 1 && currentFlashcardIndex > 200) { 
+                currentFlashcardIndex = (currentFlashcardIndex - randomInt(1, 200)) % activeFlashcardDeck.length;
+            } else {   
+                currentFlashcardIndex = (currentFlashcardIndex + randomInt(1, 200)) % activeFlashcardDeck.length;
+             }
+            
+            renderActiveFlashcard();
+        }
+
+        function nextFlashcard() {
+            currentFlashcardIndex = (currentFlashcardIndex + 1 + activeFlashcardDeck.length) % activeFlashcardDeck.length;
+            renderActiveFlashcard();
+        }
+        function previousFlashcard() {
+            currentFlashcardIndex = (currentFlashcardIndex - 1 + activeFlashcardDeck.length) % activeFlashcardDeck.length;
+            renderActiveFlashcard();
+        }
+
+        function readAloudActiveCard() {
+            if (activeFlashcardDeck.length === 0) return;
+            readAloudText(activeFlashcardDeck[currentFlashcardIndex].hanzi);
+        }
+
+        function readAloudSentenceText() {
+            if (activeFlashcardDeck.length === 0) return;
+            readAloudText(activeFlashcardDeck[currentFlashcardIndex].sentence);
+        }
+    </script>
+
+    <script>
+        function setQuizLevel(level) {
+            quizLevel = level;
+            document.querySelectorAll('.quiz-lvl-btn').forEach(btn => {
+                btn.className = "quiz-lvl-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 py-2 rounded-xl text-xs font-bold";
+            });
+            const activeId = level === 'beginner' ? 'btn-ql-beg' : level === 'intermediate' ?  'btn-ql-int' : level === 'advanced' ?'btn-ql-adv' : 'btn-ql-all';
+            document.getElementById(activeId).className = "quiz-lvl-btn bg-cinnabar-50 text-cinnabar-800 border-2 border-cinnabar-700 py-2 rounded-xl text-xs font-bold";
+        }
+
+        function setQuizMode(mode) {
+            quizMode = mode;
+            document.querySelectorAll('.quiz-mode-btn').forEach(btn => {
+                btn.className = "quiz-mode-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center";
+                const icon = btn.querySelector('i');
+                if (icon) icon.className = icon.className.replace('text-cinnabar-700', 'text-stone-400');
+            });
+            
+            let btnId = '';
+            if (mode === 'hanzi-to-meaning') btnId = 'btn-qm-h2m';
+            else if (mode === 'meaning-to-hanzi') btnId = 'btn-qm-m2h';
+            else if (mode === 'hanzi-to-pinyin') btnId = 'btn-qm-h2p';
+            else if (mode === 'pinyin-to-hanzi') btnId = 'btn-qm-p2h';
+
+            const activeBtn = document.getElementById(btnId);
+            activeBtn.className = "quiz-mode-btn bg-cinnabar-50 text-cinnabar-800 border-2 border-cinnabar-700 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center";
+            const icon = activeBtn.querySelector('i');
+            if (icon) icon.className = icon.className.replace('text-stone-400', 'text-cinnabar-700');
+        }
+
+        function restartQuizWithCurrentConfig() {
+            switchTab('quiz-lobby');
+            initiateQuizExecution();
+        }
+
+        function initiateQuizExecution() {
+            let candidates = [];
+            if (quizLevel === "all"){
+                candidates = [...hanziDatabase];
+            }else{
+                candidates = hanziDatabase.filter(item => item.level === quizLevel);
+            }
+            
+            if (candidates.length < 4) return;
+
+            const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+            activeQuizQuestionsList = shuffled.slice(0, 10);
+            
+            currentQuestionIndex = 0;
+            quizScore = 0;
+            quizIncorrectList = [];
+            doubleXPForTimer = document.getElementById('timer-toggle-checkbox').checked;
+
+            switchTab('quiz-active');
+            document.getElementById('quiz-level-indicator').textContent = quizLevel.toUpperCase();
+            loadQuizQuestion(currentQuestionIndex);
+        }
+
+        function loadQuizQuestion(index) {
+            clearInterval(quizTimerInterval);
+
+            // Reset dynamic containers
+            document.getElementById('quiz-feedback-box').classList.add('hidden');
+            document.getElementById('quiz-feedback-sentence-block').classList.add('hidden');
+            document.getElementById('quiz-next-btn').classList.add('hidden');
+
+            const currentTerm = activeQuizQuestionsList[index];
+            document.getElementById('quiz-question-counter').textContent = `Question ${index + 1}/10`;
+            document.getElementById('quiz-progress-bar').style.width = `${(index / 10) * 100}%`;
+
+            const promptMain = document.getElementById('quiz-question-main');
+            const promptHint = document.getElementById('quiz-question-hint');
+
+            // Generate distractors
+            const otherPool = hanziDatabase.filter(item => item.id !== currentTerm.id);
+            const shuffledWrong = otherPool.sort(() => Math.random() - 0.5).slice(0, 3);
+            const rawOptions = [currentTerm, ...shuffledWrong].sort(() => Math.random() - 0.5);
+
+            let questionText = "";
+            let hintText = "";
+            
+            if (quizMode === 'hanzi-to-meaning') {
+                questionText = currentTerm.hanzi;
+                hintText = "Identify the English definition for this character.";
+                promptMain.className = "text-5xl sm:text-6xl font-serif font-black text-stone-900 select-none";
+            } else if (quizMode === 'meaning-to-hanzi') {
+                questionText = currentTerm.meaning;
+                hintText = "Which Traditional Hanzi characters represent this meaning?";
+                promptMain.className = "text-xl sm:text-2xl font-serif font-semibold text-stone-800 text-center max-w-lg px-2";
+            } else if (quizMode === 'hanzi-to-pinyin') {
+                questionText = currentTerm.hanzi;
+                hintText = "Determine the correct Mandarin Pinyin transcription with tones.";
+                promptMain.className = "text-5xl sm:text-6xl font-serif font-black text-stone-900 select-none";
+            } else if (quizMode === 'pinyin-to-hanzi') {
+                questionText = currentTerm.pinyin;
+                hintText = "Which characters correspond to this phonetic Pinyin?";
+                promptMain.className = "text-3xl sm:text-4xl font-mono font-bold text-stone-800 select-none";
+            }
+
+            promptMain.textContent = questionText;
+            promptHint.textContent = hintText;
+
+            const optionsContainer = document.getElementById('quiz-options-container');
+            optionsContainer.innerHTML = '';
+
+            rawOptions.forEach((option, oIdx) => {
+                const button = document.createElement('button');
+                button.className = "w-full bg-white hover:bg-stone-50 text-stone-800 font-semibold p-3.5 rounded-xl border-2 border-stone-200 hover:border-stone-300 transition duration-150 text-left flex items-center justify-between text-xs sm:text-sm shadow-sm";
+                
+                let btnDisplayVal = "";
+                if (quizMode === 'hanzi-to-meaning') btnDisplayVal = option.meaning;
+                else if (quizMode === 'meaning-to-hanzi') btnDisplayVal = option.hanzi;
+                else if (quizMode === 'hanzi-to-pinyin') btnDisplayVal = option.pinyin;
+                else if (quizMode === 'pinyin-to-hanzi') btnDisplayVal = option.hanzi;
+
+                button.innerHTML = `
+                    <span class="font-serif font-medium">${btnDisplayVal}</span>
+                    <span class="text-stone-400 font-mono text-sm bg-stone-50 py-0.5 px-1.5 rounded border border-stone-200/60">Option ${oIdx + 1}</span>
+                `;
+
+                button.onclick = () => submitQuizAnswer(button, option, currentTerm);
+                optionsContainer.appendChild(button);
+            });
+
+            if (quizMode === 'hanzi-to-meaning' || quizMode === 'hanzi-to-pinyin') {
+                readAloudText(currentTerm.hanzi);
+            }
+
+            const timerContainer = document.getElementById('quiz-timer-container');
+            if (doubleXPForTimer) {
+                timerContainer.classList.remove('hidden');
+                activeTimeRemaining = quizTimeLimit;
+                document.getElementById('quiz-timer-val').textContent = `${activeTimeRemaining}s`;
+                
+                quizTimerInterval = setInterval(() => {
+                    activeTimeRemaining--;
+                    document.getElementById('quiz-timer-val').textContent = `${activeTimeRemaining}s`;
+                    
+                    if (activeTimeRemaining <= 0) {
+                        clearInterval(quizTimerInterval);
+                        triggerTimeoutFailure(currentTerm);
+                    }
+                }, 1000);
+            } else {
+                timerContainer.classList.add('hidden');
+            }
+        }
+
+        function submitQuizAnswer(selectedButton, selectedOption, correctItem) {
+            clearInterval(quizTimerInterval);
+
+            document.querySelectorAll('#quiz-options-container button').forEach(btn => {
+                btn.disabled = true;
+                btn.classList.add('opacity-60', 'cursor-not-allowed');
+            });
+
+            const isCorrect = selectedOption.id === correctItem.id;
+            const feedbackBox = document.getElementById('quiz-feedback-box');
+            feedbackBox.classList.remove('hidden');
+
+            // Render sentence details inside feedback box
+            const sentenceBlock = document.getElementById('quiz-feedback-sentence-block');
+            document.getElementById('quiz-feedback-sentence-zh').textContent = `${correctItem.sentence}`;
+            document.getElementById('quiz-feedback-sentence-pinyin').textContent = `(${correctItem.sentencePinyin})`;
+            document.getElementById('quiz-feedback-sentence-en').textContent = correctItem.sentenceTranslation;
+            sentenceBlock.classList.remove('hidden');
+
+            if (isCorrect) {
+                quizScore++;
+                selectedButton.classList.remove('bg-white', 'opacity-60', 'border-stone-200');
+                selectedButton.classList.add('bg-green-50', 'border-green-600', 'text-green-900', 'opacity-100');
+                
+                feedbackBox.className = "rounded-xl p-3.5 border bg-green-50 border-green-200 text-green-900 flex items-start gap-3 transition";
+                document.getElementById('quiz-feedback-icon').innerHTML = `<i class="fa-solid fa-circle-check text-green-700"></i>`;
+                document.getElementById('quiz-feedback-title').textContent = "Correct Answer! (答對了)";
+                document.getElementById('quiz-feedback-desc').textContent = `${correctItem.hanzi} [${correctItem.pinyin}] - ${correctItem.meaning}`;
+                readAloudText(correctItem.hanzi);
+            } else {
+                selectedButton.classList.remove('bg-white', 'opacity-60', 'border-stone-200');
+                selectedButton.classList.add('bg-red-50', 'border-red-600', 'text-red-900', 'opacity-100');
+                highlightCorrectAnswerButton(correctItem);
+                
+                feedbackBox.className = "rounded-xl p-3.5 border bg-red-50 border-red-200 text-red-900 flex items-start gap-3 transition";
+                document.getElementById('quiz-feedback-icon').innerHTML = `<i class="fa-solid fa-circle-xmark text-red-700"></i>`;
+                document.getElementById('quiz-feedback-title').textContent = "Incorrect Choice";
+                document.getElementById('quiz-feedback-desc').textContent = `Correct: ${correctItem.hanzi} [${correctItem.pinyin}] meaning: ${correctItem.meaning}`;
+                
+                quizIncorrectList.push(correctItem);
+            }
+
+            document.getElementById('quiz-next-btn').classList.remove('hidden');
+        }
+
+        function triggerTimeoutFailure(correctItem) {
+            document.querySelectorAll('#quiz-options-container button').forEach(btn => {
+                btn.disabled = true;
+                btn.classList.add('opacity-60', 'cursor-not-allowed');
+            });
+
+            highlightCorrectAnswerButton(correctItem);
+
+            const feedbackBox = document.getElementById('quiz-feedback-box');
+            feedbackBox.classList.remove('hidden');
+            feedbackBox.className = "rounded-xl p-3.5 border bg-amber-50 border-amber-200 text-amber-900 flex items-start gap-3 transition";
+            
+            // Show sentence fallback
+            const sentenceBlock = document.getElementById('quiz-feedback-sentence-block');
+            document.getElementById('quiz-feedback-sentence-zh').textContent = `${correctItem.sentence} (${correctItem.sentencePinyin})`;
+            document.getElementById('quiz-feedback-sentence-en').textContent = correctItem.sentenceTranslation;
+            sentenceBlock.classList.remove('hidden');
+
+            document.getElementById('quiz-feedback-icon').innerHTML = `<i class="fa-solid fa-hourglass-end text-amber-700"></i>`;
+            document.getElementById('quiz-feedback-title').textContent = "Time Expired!";
+            document.getElementById('quiz-feedback-desc').textContent = `Correct answer was ${correctItem.hanzi}. Speed up next time!`;
+
+            quizIncorrectList.push(correctItem);
+            document.getElementById('quiz-next-btn').classList.remove('hidden');
+        }
+
+        function highlightCorrectAnswerButton(correctItem) {
+            document.querySelectorAll('#quiz-options-container button').forEach(btn => {
+                const text = btn.textContent;
+                let matches = false;
+                if (quizMode === 'hanzi-to-meaning' && text.includes(correctItem.meaning)) matches = true;
+                else if ((quizMode === 'meaning-to-hanzi' || quizMode === 'pinyin-to-hanzi') && text.includes(correctItem.hanzi)) matches = true;
+                else if (quizMode === 'hanzi-to-pinyin' && text.includes(correctItem.pinyin)) matches = true;
+
+                if (matches) {
+                    btn.className = "w-full bg-green-50 text-green-900 font-semibold p-3.5 rounded-xl border-2 border-green-600 transition text-left flex items-center justify-between text-xs sm:text-sm opacity-100";
+                }
+            });
+        }
+
+        function nextQuizQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < 10) {
+                loadQuizQuestion(currentQuestionIndex);
+            } else {
+                concludeQuizSession();
+            }
+        }
+
+        function concludeQuizSession() {
+            clearInterval(quizTimerInterval);
+            switchTab('quiz-results');
+            document.getElementById('quiz-progress-bar').style.width = "100%";
+
+            const scorePercent = quizScore * 10;
+            const baseXP = quizScore * 15;
+            const timerBonus = doubleXPForTimer ? (quizScore * 10) : 0;
+            const totalXP = baseXP + timerBonus;
+
+            addXP(totalXP);
+            incrementStreak();
+
+            document.getElementById('res-correct-fraction').textContent = `${quizScore}/10`;
+            document.getElementById('res-accuracy-pct').textContent = `${scorePercent}%`;
+            document.getElementById('res-xp-gained').textContent = `+${totalXP} XP`;
+
+            const accEl = document.getElementById('res-accuracy-pct');
+            if (quizScore >= 8) {
+                accEl.className = "text-lg font-black text-emerald-600 mt-0.5";
+                triggerConfettiReward();
+            } else if (quizScore >= 5) {
+                accEl.className = "text-lg font-black text-amber-500 mt-0.5";
+            } else {
+                accEl.className = "text-lg font-black text-red-600 mt-0.5";
+            }
+
+            const reviewContainer = document.getElementById('incorrect-review-container');
+            const reviewList = document.getElementById('incorrect-review-list');
+            reviewList.innerHTML = '';
+
+            if (quizIncorrectList.length > 0) {
+                reviewContainer.classList.remove('hidden');
+                quizIncorrectList.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = "bg-stone-50 p-2.5 rounded-xl border border-stone-200 flex justify-between items-start text-sm gap-4";
+                    row.innerHTML = `
+                        <div class="space-y-1">
+                            <div>
+                                <span class="font-serif font-bold text-stone-900 text-sm">${item.hanzi}</span>
+                                <span class="text-sm text-stone-500 font-mono ml-1">[${item.pinyin}]</span>
+                                <p class="text-sm text-stone-700 font-medium">${item.meaning}</p>
+                            </div>
+                            <div class="bg-white px-2 py-1 rounded border border-stone-200/50 text-sm text-stone-500">
+                                <span class="font-serif font-bold text-stone-700">例: ${item.sentence}</span>
+                                <button onclick="readAloudText('${item.sentence}')" class="text-stone-400 hover:text-stone-700 text-xs mt-1" title="Listen Sentence">
+                                    <i class="fa-solid fa-volume-high"></i>
+                                </button>
+                                <p class="italic text-sm text-stone-500 mt-0.5">${item.sentenceTranslation}</p>
+                            </div>
+                        </div>
+                        <button onclick="readAloudText('${item.hanzi}')" class="text-stone-400 hover:text-stone-700 text-xs mt-1" title="Listen Audio">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </button>
+                    `;
+                    reviewList.appendChild(row);
+                });
+            } else {
+                reviewContainer.classList.add('hidden');
+            }
+        }
+
+        function triggerConfettiReward() {
+            if (typeof confetti !== "undefined") {
+                const duration = 1.5 * 1000;
+                const end = Date.now() + duration;
+
+                (function frame() {
+                    confetti({
+                        particleCount: 3,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 },
+                        colors: ['#D4AF37', '#9F1D35', '#2E7D32']
+                    });
+                    confetti({
+                        particleCount: 3,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 },
+                        colors: ['#D4AF37', '#9F1D35', '#2E7D32']
+                    });
+
+                    if (Date.now() < end) {
+                        requestAnimationFrame(frame);
+                    }
+                }());
+            }
+        }
+    </script>
+
+    <script>
+        let currentPage = 1;
+        const itemsPerPage = 12; // You can change this number to adjust items per page
+        let currentDataSet = [];
+
+        function renderDictionary(data, resetPage = true) {
+            const grid = document.getElementById('dictionary-grid');
+            grid.innerHTML = '';
+
+            if (resetPage) {
+                currentPage = 1;
+                // Sort data by beginner -> intermediate -> advanced
+                const levelOrder = { 'beginner': 1, 'intermediate': 2, 'advanced': 3 };
+                currentDataSet = [...data].sort((a, b) => {
+                    return (levelOrder[a.level] || 4) - (levelOrder[b.level] || 4);
+                });
+            }
+
+            // Calculate pagination variables
+            const totalItems = currentDataSet.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = currentDataSet.slice(startIndex, endIndex);
+
+            paginatedData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl p-4 shadow-sm border border-stone-200 hover:shadow transition-all flex flex-col justify-between space-y-3";
+                
+                const lvlTag = item.level === 'beginner' 
+                    ? '<span class="bg-green-50 text-green-700 text-sm font-bold px-2 py-0.5 rounded border border-green-200">BEGINNER</span>' 
+                    : item.level === 'intermediate'
+                    ? '<span class="bg-amber-50 text-amber-700 text-sm font-bold px-2 py-0.5 rounded border border-amber-200">INTERMEDIATE</span>'
+                    : '<span class="bg-red-50 text-red-700 text-sm font-bold px-2 py-0.5 rounded border border-red-200">ADVANCED</span>';
+
+                card.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            ${lvlTag}
+                            <div class="flex items-center gap-2">
+                                <button onclick="readAloudText('${item.hanzi}')" class="text-stone-400 hover:text-stone-700 text-xs focus:outline-none" title="Hear Pronunciation">
+                                    <i class="fa-solid fa-volume-high"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3.5 pt-1">
+                            <h3 class="text-4xl font-serif font-black text-stone-900 select-none">${item.hanzi}</h3>
+                            <div>
+                                <h4 class="text-sm font-bold text-cinnabar-700 font-mono">${item.pinyin}</h4>
+                                <p class="text-sm text-stone-500 uppercase tracking-wider">${item.radical}部首</p>
+                            </div>
+                        </div>
+
+                        <div class="border-t pt-2 text-xs space-y-1">
+                            <p class="text-sm text-stone-400 font-bold uppercase tracking-wider">Definition</p>
+                            <p class="text-xs font-bold text-stone-800">${item.meaning}</p>
+                        </div>
+
+                        <div class="bg-stone-50 p-2 rounded-lg border border-stone-200 space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-cinnabar-800 font-bold uppercase tracking-wide">Example Sentence (例句)</span>
+                                <button onclick="readAloudText('${item.sentence}')" class="text-sm text-stone-400 hover:text-stone-600" title="Listen Sentence">
+                                    <i class="fa-solid fa-volume-low"></i>
+                                </button>
+                            </div>
+                            <p class="text-xs font-serif font-semibold text-stone-900">${item.sentence}</p>
+                            <p class="text-sm font-mono text-stone-500">${item.sentencePinyin}</p>
+                            <p class="text-sm text-stone-600 italic border-t border-stone-200/50 pt-0.5">${item.sentenceTranslation}</p>
+                        </div>
+
+                        <p class="text-sm text-stone-600 leading-relaxed bg-amber-50/30 p-2 rounded-lg border border-amber-100/50">${item.explanation}</p>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            renderPaginationControls(totalPages);
+        }
+
+        function renderPaginationControls(totalPages) {
+            let pagContainer = document.getElementById('dictionary-pagination');
+            
+            // Create pagination container dynamically below the grid if it doesn't exist
+            if (!pagContainer) {
+                pagContainer = document.createElement('div');
+                pagContainer.id = 'dictionary-pagination';
+                pagContainer.className = "flex justify-center items-center gap-1.5 mt-8 w-50%";
+                document.getElementById('dictionary-grid').after(pagContainer);
+            }
+
+            pagContainer.innerHTML = '';
+
+            // Don't show pagination controls if there is only 1 page or no data
+            if (totalPages <= 1) return;
+
+            // Previous Button
+            const prevBtn = document.createElement('button');
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.className = `px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${currentPage === 1 ? 'text-stone-300 border-stone-100 cursor-not-allowed' : 'text-stone-600 border-stone-200 hover:bg-stone-50 hover:text-stone-900'}`;
+            prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left mr-1"></i> Prev';
+            prevBtn.onclick = () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderDictionary(currentDataSet, false);
+                }
+            };
+            pagContainer.appendChild(prevBtn);
+
+            // Helper function to create standard page buttons
+            const createPageButton = (pageNo) => {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${currentPage === pageNo ? 'bg-stone-900 text-white border-stone-900' : 'text-stone-600 border-stone-200 hover:bg-stone-50 hover:text-stone-900'}`;
+                pageBtn.innerText = pageNo;
+                pageBtn.onclick = () => {
+                    currentPage = pageNo;
+                    renderDictionary(currentDataSet, false);
+                };
+                pagContainer.appendChild(pageBtn);
+            };
+
+            // Helper function to create ellipsis
+            const createEllipsis = () => {
+                const ellipsis = document.createElement('span');
+                ellipsis.className = "px-2 py-1.5 text-xs text-stone-400 select-none font-medium";
+                ellipsis.innerText = "...";
+                pagContainer.appendChild(ellipsis);
+            };
+
+            // Determine visible page range (show maximum 5 pages around current page)
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+
+            if (currentPage <= 3) {
+                endPage = Math.min(5, totalPages);
+            } else if (currentPage >= totalPages - 2) {
+                startPage = Math.max(1, totalPages - 4);
+            }
+
+            // Render First Page if needed
+            if (startPage > 1) {
+                createPageButton(1);
+                if (startPage > 2) createEllipsis();
+            }
+
+            // Render Page Number Window
+            for (let i = startPage; i <= endPage; i++) {
+                createPageButton(i);
+            }
+
+            // Render Last Page if needed
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) createEllipsis();
+                createPageButton(totalPages);
+            }
+
+            // Next Button
+            const nextBtn = document.createElement('button');
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.className = `px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${currentPage === totalPages ? 'text-stone-300 border-stone-100 cursor-not-allowed' : 'text-stone-600 border-stone-200 hover:bg-stone-50 hover:text-stone-900'}`;
+            nextBtn.innerHTML = 'Next <i class="fa-solid fa-chevron-right ml-1"></i>';
+            nextBtn.onclick = () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderDictionary(currentDataSet, false);
+                }
+            };
+            pagContainer.appendChild(nextBtn);
+        }
+        
+        function filterDictionaryList() {
+            const query = document.getElementById('dict-search').value.toLowerCase().trim();
+            const filtered = hanziDatabase.filter(item => {
+                return item.hanzi.toLowerCase().includes(query) || 
+                       item.pinyin.toLowerCase().includes(query) || 
+                       item.meaning.toLowerCase().includes(query) ||
+                       item.radical.toLowerCase().includes(query) ||
+                       item.sentence.toLowerCase().includes(query) ||
+                       item.sentenceTranslation.toLowerCase().includes(query);
+            });
+            renderDictionary(filtered);
+        }
+</script>
+</body>
+</html>
