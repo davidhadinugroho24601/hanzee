@@ -1,1 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traditional Hanzi Academy - 繁體字學習</title>
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti for winning quiz scores -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js">
+    </script>
 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['Noto Serif TC', 'serif'],
+                        body: ['Inter', 'sans-serif']
+                    },
+                    colors: {
+                        parchment: {
+                            50: '#FDFBF7',
+                            100: '#FAF6EE',
+                            200: '#F5EFE0',
+                            300: '#EDE2CC',
+                            400: '#E2D0AF',
+                        },
+                        cinnabar: {
+                            50: '#FDF3F3',
+                            100: '#FBE6E6',
+                            500: '#D32F2F',
+                            700: '#9F1D35',
+                            800: '#7B1325',
+                            900: '#5C0916',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .mizige {
+            background-color: #faf6ee;
+            position: relative;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FAF6EE;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #7B1325;
+            border-radius: 3px;
+        }
+        /* Flashcard flip mechanism */
+        .card-perspective {
+            perspective: 1000px;
+        }
+        .card-inner {
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .card-inner.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            -webkit-backface-visibility: hidden; /* Add this */
+            backface-visibility: hidden;
+            -webkit-transform-style: preserve-3d; /* Add this */
+            transform-style: preserve-3d;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="bg-parchment-100 font-body text-stone-800 min-h-screen flex flex-col selection:bg-cinnabar-100 selection:text-cinnabar-800">
+
+    <header class="bg-cinnabar-900 text-parchment-50 border-b-4 border-amber-500 shadow-lg sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('flashcards')">
+                <div class="bg-amber-500 text-cinnabar-900 w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl border border-parchment-50 font-serif">
+                    繁
+                </div>
+                <div>
+                    <h1 class="font-serif text-lg sm:text-xl font-black tracking-wide text-amber-400">Hanzee Academy</h1>
+                    <p class="text-xs text-parchment-300 font-serif tracking-wider">繁體字 · Easy Study & Quiz For Traditional Hanzi</p>
+                </div>
+            </div>
+
+            <!-- Stats and Actions -->
+            <div class="flex items-center space-x-4">
+                <div class="bg-cinnabar-800 border border-cinnabar-700 rounded-lg py-1 px-3 flex items-center space-x-2 text-xs sm:text-sm">
+                    <i class="fa-solid fa-fire text-orange-400"></i>
+                    <span class="font-semibold text-parchment-100" id="global-streak">0 Days</span>
+                </div>
+                <div class="bg-cinnabar-800 border border-cinnabar-700 rounded-lg py-1 px-3 flex items-center space-x-2 text-xs sm:text-sm">
+                    <i class="fa-solid fa-trophy text-amber-400"></i>
+                    <span class="font-semibold text-parchment-100" id="global-xp">0 XP</span>
+                </div>
+                <button onclick="showResetConfirmation()" class="text-parchment-300 hover:text-white transition text-xs flex items-center gap-1 bg-cinnabar-800/40 hover:bg-cinnabar-800 px-2 py-1.5 rounded" title="Reset your progress">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs Bar -->
+        <nav class="bg-cinnabar-850 border-t border-cinnabar-800/60">
+            <div class="max-w-6xl mx-auto px-4 flex justify-around sm:justify-start sm:space-x-8 text-sm font-serif">
+                <button onclick="switchTab('flashcards')" id="tab-flashcards" class="tab-btn py-3 px-3 text-amber-400 border-b-2 border-amber-400 font-semibold focus:outline-none transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-clone"></i> Study Deck
+                </button>
+                <button onclick="switchTab('quiz-lobby')" id="tab-quiz" class="tab-btn py-3 px-3 text-parchment-300 hover:text-parchment-50 border-b-2 border-transparent hover:border-parchment-300 focus:outline-none transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-circle-play"></i> Quiz Mode
+                </button>
+                <button onclick="switchTab('dictionary')" id="tab-dictionary" class="tab-btn py-3 px-3 text-parchment-300 hover:text-parchment-50 border-b-2 border-transparent hover:border-parchment-300 focus:outline-none transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-book-open"></i> Character Archive
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Custom Dialog Modal (Replaces native alerts) -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border-t-4 border-cinnabar-700 space-y-4">
+            <h3 class="text-lg font-serif font-black text-stone-950">Reset Progress?</h3>
+            <p class="text-xs text-stone-600 leading-relaxed">This action will permanently erase your total XP milestones, active study streaks, and historical scoring data. Are you sure you want to proceed?</p>
+            <div class="flex justify-end gap-2 text-xs">
+                <button onclick="hideResetConfirmation()" class="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-lg transition">Cancel</button>
+                <button onclick="confirmResetStats()" class="px-4 py-2 bg-cinnabar-700 hover:bg-cinnabar-850 text-white font-bold rounded-lg transition">Yes, Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-grow max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <section id="sec-flashcards" class="tab-section block max-w-2xl mx-auto space-y-6 animate-fadeIn">
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h2 class="text-2xl font-serif font-bold text-stone-900">Study Deck (記憶卡)</h2>
+                    <p class="text-stone-500 text-sm">Flip card to inspect phonetic spelling, meanings, and historical components.</p>
+                </div>
+
+                <!-- Deck level select filter -->
+                <div class="flex items-center space-x-2">
+                    <label for="flashcard-level-select" class="text-xs text-stone-600 font-bold uppercase tracking-wider">Level:</label>
+                    <select id="flashcard-level-select" onchange="filterFlashcardsByLevel(this.value)" class="bg-white border border-stone-300 rounded-lg p-1.5 text-sm text-stone-800 focus:ring-2 focus:ring-cinnabar-700 font-semibold">
+                        <option value="all">All Decks</option>
+                        <option value="beginner">Beginner (Nature)</option>
+                        <option value="intermediate">Intermediate (Compounds)</option>
+                        <option value="advanced">Advanced (Complex)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Active Deck Status Bar -->
+            <div class="bg-white border border-stone-200 rounded-xl p-3 flex justify-between items-center text-sm text-stone-600 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-cinnabar-700"></i>
+                    <span>Card Progress: <strong id="flashcard-index-indicator" class="text-stone-900 font-mono">1/30</strong></span>
+                </div>
+            </div>
+
+            <!-- Beautiful Card Wrapper (Perspective container) -->
+            <div class="card-perspective w-full h-[450px] relative cursor-pointer" onclick="flipActiveCard()">
+                <div class="card-inner w-full h-full relative" id="study-card-inner">
+
+                    <!-- FRONT CARD (Hanzi Visual) -->
+                    <div class="card-front bg-white rounded-2xl p-6 shadow-md border-4 border-amber-600 flex flex-col justify-between overflow-hidden">
+                        <div class="absolute right-3 top-3 bg-stone-100 text-stone-500 font-semibold uppercase text-xxs px-3 py-1 rounded-full border border-stone-200 font-mono" id="card-front-level">
+                            BEGINNER
+                        </div>
+
+                        <!-- Drawing red mi zi ge style grid behind characters -->
+                        <div class="flex-grow flex flex-col items-center justify-center relative my-4">
+                            <div class="absolute inset-x-0 inset-y-0 max-w-[150px] max-h-[150px] sm:max-w-[185px] sm:max-h-[185px] m-auto border-2 border-dashed border-red-200 opacity-60 pointer-events-none flex items-center justify-center">
+                                <div class="absolute w-full border-t border-dashed border-red-200"></div>
+                                <div class="absolute h-full border-l border-dashed border-red-200"></div>
+                                <div class="absolute w-full h-full border border-dashed border-red-200 rotate-45 transform origin-center"></div>
+                                <div class="absolute w-full h-full border border-dashed border-red-200 -rotate-45 transform origin-center"></div>
+                            </div>
+                            <h3 class="text-7xl sm:text-9xl font-serif font-black text-stone-900 relative z-10 select-none" id="card-front-hanzi">
+                                國
+                            </h3>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-xs text-stone-400 uppercase tracking-widest">Tap Card to Flip & Reveal Details</p>
+                        </div>
+                    </div>
+
+                    <!-- BACK CARD (Meaning, Pinyin, Radicals & Example Sentences) -->
+                    <div class="card-back bg-gradient-to-br from-parchment-50 to-parchment-100 rounded-2xl p-6 shadow-md border-4 border-cinnabar-700 flex flex-col justify-between overflow-y-auto">
+                        <div class="space-y-4">
+                            <!-- Character Title -->
+                            <div class="text-center">
+                                <h4 class="text-3xl font-serif font-bold text-stone-900" id="card-back-hanzi">國</h4>
+                                <div class="inline-block bg-cinnabar-700 text-parchment-50 font-bold px-3 py-0.5 rounded-lg text-sm tracking-wide shadow-sm mt-1" id="card-back-pinyin">
+                                    guó
+                                </div>
+                            </div>
+
+                            <!-- Meanings & Breakdown Grid -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="bg-white rounded-xl p-3 border border-stone-200 shadow-sm sm:col-span-1">
+                                    <p class="text-xxs text-stone-400 font-bold uppercase tracking-wider">Radical / Strokes</p>
+                                    <p class="text-xs font-semibold text-stone-850 mt-1" id="card-back-radical">囗 (enclosure)</p>
+                                    <p class="text-sm text-stone-500 font-mono mt-0.5" id="card-back-strokes">11 strokes</p>
+                                </div>
+                                <div class="bg-white rounded-xl p-3 border border-stone-200 shadow-sm sm:col-span-2">
+                                    <p class="text-xxs text-stone-400 font-bold uppercase tracking-wider">English Definition</p>
+                                    <p class="text-sm font-bold text-stone-850 mt-1" id="card-back-meaning">country / nation / state</p>
+                                </div>
+                            </div>
+
+                            <!-- Example Sentence Block -->
+                            <div class="bg-stone-50 rounded-xl p-3.5 border border-stone-200 space-y-1.5 relative group" onclick="event.stopPropagation();">
+                                <div class="flex justify-between items-center">
+                                    <p class="text-sm text-cinnabar-700 font-black uppercase tracking-wider flex items-center gap-1">
+                                        <i class="fa-solid fa-quote-left"></i> Example Sentence (例句)
+                                    </p>
+                                </div>
+                                <p class="text-lg font-serif font-semibold text-stone-900 tracking-wide" id="card-back-sentence">台灣是一個美麗的國家。</p>
+                                <p class="text-xxs font-mono text-stone-500" id="card-back-sentence-pinyin">Táiwān shì yīgè měilì de guójiā.</p>
+                                <p class="text-xs text-stone-700 italic border-t border-stone-200/50 pt-1" id="card-back-sentence-trans">Taiwan is a beautiful country.</p>
+                            </div>
+
+                            <!-- Cultural Mnemonic / breakdown -->
+                            <div class="bg-amber-50/50 rounded-xl p-3 border border-amber-100">
+                                <p class="text-xxs text-amber-800 font-bold uppercase tracking-wide flex items-center gap-1">
+                                    <i class="fa-solid fa-lightbulb"></i> Etymology & Mnemonic
+                                </p>
+                                <p class="text-xxs text-stone-700 leading-relaxed mt-1" id="card-back-explanation">
+                                    Surrounded by a giant border (囗) enclosing territories, containing weapons (或) defending boundaries.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="text-center pt-2 border-t border-stone-200">
+                            <span class="text-xxs text-stone-400 uppercase tracking-widest">Tap to flip back</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Card Deck Navigation Controls -->
+            <div class="flex justify-between items-center gap-4 pt-2">
+                <button onclick="previousFlashcard()" class="bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 font-semibold py-2.5 px-5 rounded-xl transition shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-chevron-left"></i> Previous
+                </button>
+                <div class="flex justify-between items-center gap-1">
+                    <button onclick="randomFlashcard()" class="bg-cinnabar-50 hover:bg-cinnabar-100 text-cinnabar-800 w-11 h-11 rounded-full flex items-center justify-center transition shadow-sm focus:outline-none" title="Random card">
+                        <i class="fa-solid fa-arrows-rotate text-base"></i>
+                    </button>
+                </div>
+
+                <button onclick="nextFlashcard()" class="bg-cinnabar-700 hover:bg-cinnabar-800 text-white font-semibold py-2.5 px-5 rounded-xl transition shadow-sm flex items-center gap-2">
+                    Next <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="sec-quiz-lobby" class="tab-section hidden max-w-2xl mx-auto space-y-6 animate-fadeIn">
+            <div class="text-center space-y-2 max-w-xl mx-auto">
+                <h2 class="text-2xl font-serif font-black text-stone-900">Quiz Challenge (測驗模式)</h2>
+                <p class="text-stone-600 text-sm">Configure your parameters, challenge your recognition skills, and build XP.</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-md border border-stone-200 space-y-6">
+                <h3 class="text-base font-bold text-stone-900 border-b pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-cinnabar-700"></i> Choose Parameters
+                </h3>
+
+                <!-- Level selection -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-stone-600 uppercase tracking-wider">Vocabulary Level</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setQuizLevel('beginner')" id="btn-ql-beg" class="quiz-lvl-btn bg-cinnabar-50 text-cinnabar-800 border-2 border-cinnabar-700 py-2 rounded-xl text-xs font-bold">
+                            Beginner
+                        </button>
+                        <button onclick="setQuizLevel('intermediate')" id="btn-ql-int" class="quiz-lvl-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 py-2 rounded-xl text-xs font-bold">
+                            Intermediate
+                        </button>
+                        <button onclick="setQuizLevel('advanced')" id="btn-ql-adv" class="quiz-lvl-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 py-2 rounded-xl text-xs font-bold">
+                            Advanced
+                        </button>
+                        <button onclick="setQuizLevel('all')" id="btn-ql-all" class="quiz-lvl-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 py-2 rounded-xl text-xs font-bold">
+                            All Levels
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mode selection -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-stone-600 uppercase tracking-wider">Quiz Mode</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button onclick="setQuizMode('hanzi-to-meaning')" id="btn-qm-h2m" class="quiz-mode-btn bg-cinnabar-50 text-cinnabar-800 border-2 border-cinnabar-700 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center">
+                            <span>Hanzi ➔ Meaning</span> <i class="fa-solid fa-align-left text-cinnabar-700"></i>
+                        </button>
+                        <button onclick="setQuizMode('meaning-to-hanzi')" id="btn-qm-m2h" class="quiz-mode-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center">
+                            <span>Meaning ➔ Hanzi</span> <i class="fa-solid fa-shapes text-stone-400"></i>
+                        </button>
+                        <button onclick="setQuizMode('hanzi-to-pinyin')" id="btn-qm-h2p" class="quiz-mode-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center">
+                            <span>Hanzi ➔ Pinyin</span> <i class="fa-solid fa-language text-stone-400"></i>
+                        </button>
+                        <button onclick="setQuizMode('pinyin-to-hanzi')" id="btn-qm-p2h" class="quiz-mode-btn bg-white text-stone-700 border border-stone-300 hover:bg-stone-50 p-3 rounded-xl text-left text-xs font-bold flex justify-between items-center">
+                            <span>Pinyin ➔ Hanzi</span> <i class="fa-solid fa-keyboard text-stone-400"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Timed toggle element -->
+                <div class="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200">
+                    <div class="space-y-0.5">
+                        <p class="text-xs font-bold text-amber-900">Timer Challenge</p>
+                        <p class="text-xxs text-amber-700">10-second response limit per question for double points</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="timer-toggle-checkbox" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cinnabar-700"></div>
+                    </label>
+                </div>
+
+                <button onclick="initiateQuizExecution()" class="w-full bg-gradient-to-r from-cinnabar-700 to-cinnabar-800 hover:from-cinnabar-800 hover:to-cinnabar-900 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all text-center font-serif flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i> Start Quiz (開始測驗)
+                </button>
+            </div>
+        </section>
+
+        <section id="sec-quiz-active" class="tab-section hidden max-w-xl mx-auto space-y-4 animate-fadeIn">
+            <!-- Header status & Timer -->
+            <div class="bg-white rounded-xl p-3 shadow-sm border border-stone-200 flex justify-between items-center gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm font-bold text-stone-900 font-mono" id="quiz-question-counter">Question 1/10</span>
+                        <span class="text-xxs font-semibold bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full" id="quiz-level-indicator">BEGINNER</span>
+                    </div>
+                </div>
+
+                <!-- Timer Pill -->
+                <div id="quiz-timer-container" class="bg-red-50 text-cinnabar-700 font-bold px-3 py-1 rounded-lg border border-red-200 flex items-center gap-1.5 text-xs">
+                    <i class="fa-regular fa-clock text-sm animate-pulse"></i>
+                    <span id="quiz-timer-val" class="font-mono text-base">10s</span>
+                </div>
+            </div>
+
+            <!-- Quiz Progress bar -->
+            <div class="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
+                <div id="quiz-progress-bar" class="bg-gradient-to-r from-cinnabar-700 to-amber-500 h-full w-0 transition-all duration-300"></div>
+            </div>
+
+            <!-- Question Presentation Card -->
+            <div class="bg-white rounded-2xl p-6 shadow-md border border-stone-200 flex flex-col items-center justify-center space-y-4 min-h-[180px]">
+                <div class="text-center space-y-2">
+                    <h3 id="quiz-question-main" class="text-5xl sm:text-6xl font-serif font-black text-stone-900 select-none">
+                        國
+                    </h3>
+                    <p id="quiz-question-hint" class="text-stone-500 text-xs font-semibold max-w-md">
+                        Identify the English definition for this character.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Answer options -->
+            <div class="grid grid-cols-1 gap-2.5" id="quiz-options-container">
+                <!-- Dynamically populated buttons -->
+            </div>
+
+            <!-- Quiz feedback block -->
+            <div id="quiz-feedback-box" class="hidden rounded-xl p-3.5 border flex items-start gap-3 transition">
+                <div class="text-xl" id="quiz-feedback-icon"></div>
+                <div class="space-y-1 w-full">
+                    <div class="flex justify-between items-start gap-2">
+                        <p class="font-bold text-sm" id="quiz-feedback-title"></p>
+                    </div>
+                    <p class="text-sm opacity-90" id="quiz-feedback-desc"></p>
+
+                    <!-- Integrated mini sentence guide on answer feedback -->
+                    <div id="quiz-feedback-sentence-block" class="mt-2 pt-2 border-t border-black/10 text-sm space-y-0.5 hidden">
+                        <p class="font-bold uppercase tracking-wider text-xs text-cinnabar-700 opacity-80">Example Context (例句):</p>
+
+                        <p class="font-serif font-semibold">
+                            <span id="quiz-feedback-sentence-zh"></span>
+                            <span id="quiz-feedback-sentence-pinyin"></span>
+                        </p>
+                        <p class="italic text-stone-600" id="quiz-feedback-sentence-en"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Next navigation -->
+            <div class="flex justify-end pt-1">
+                <button id="quiz-next-btn" onclick="nextQuizQuestion()" class="hidden bg-cinnabar-800 hover:bg-cinnabar-900 text-white font-semibold py-2 px-6 rounded-lg transition shadow flex items-center gap-2 text-xs">
+                    Next Question <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="sec-quiz-results" class="tab-section hidden max-w-md mx-auto space-y-6 animate-fadeIn">
+            <div class="bg-white rounded-2xl p-6 shadow-md border border-stone-200 text-center space-y-6">
+                <div class="space-y-2">
+                    <div class="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center text-amber-500 text-2xl mx-auto">
+                        <i class="fa-solid fa-scroll"></i>
+                    </div>
+                    <h2 class="text-2xl font-serif font-black text-stone-900">Quiz Completed!</h2>
+                    <p class="text-stone-500 text-xs">Review your performance indicators and XP reward.</p>
+                </div>
+
+                <!-- Scores grid -->
+                <div class="grid grid-cols-3 gap-2 border-y border-stone-100 py-4">
+                    <div>
+                        <p class="text-stone-400 text-xxs font-bold uppercase">Correct</p>
+                        <h4 class="text-lg font-black text-stone-900 mt-0.5" id="res-correct-fraction">0/10</h4>
+                    </div>
+                    <div>
+                        <p class="text-stone-400 text-xxs font-bold uppercase">Accuracy</p>
+                        <h4 class="text-lg font-black text-emerald-600 mt-0.5" id="res-accuracy-pct">0%</h4>
+                    </div>
+                    <div>
+                        <p class="text-stone-400 text-xxs font-bold uppercase">XP Gain</p>
+                        <h4 class="text-lg font-black text-amber-500 mt-0.5" id="res-xp-gained">+0</h4>
+                    </div>
+                </div>
+
+                <!-- Review incorrect answers list -->
+                <div id="incorrect-review-container" class="text-left space-y-2 hidden">
+                    <p class="text-xxs font-bold text-stone-500 uppercase">Review Mistakes:</p>
+                    <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1" id="incorrect-review-list">
+                        <!-- Dynamic list of wrong questions -->
+                    </div>
+                </div>
+
+                <!-- Action choices -->
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button onclick="switchTab('quiz-lobby')" class="bg-stone-100 hover:bg-stone-200 text-stone-850 font-semibold py-2 px-4 rounded-xl text-xs transition">
+                        Lobby Options
+                    </button>
+                    <button onclick="restartQuizWithCurrentConfig()" class="bg-cinnabar-700 hover:bg-cinnabar-800 text-white font-semibold py-2 px-4 rounded-xl text-xs transition shadow">
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="sec-dictionary" class="tab-section hidden space-y-6 animate-fadeIn">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-stone-200 pb-4">
+        <div>
+            <h2 class="text-2xl font-serif font-bold text-stone-900">Character Archive (漢字字典)</h2>
+            <p class="text-stone-500 text-sm">A reference explorer to lookup characters, verify details, and review spelling.</p>
+        </div>
+        <!-- Controls: search + level filter -->
+        <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <!-- Level filter -->
+            <div class="flex items-center space-x-2">
+                <label for="dict-level-filter" class="text-xs text-stone-600 font-bold uppercase tracking-wider">Level:</label>
+                <select id="dict-level-filter" onchange="filterDictionaryList()" class="bg-white border border-stone-300 rounded-lg p-1.5 text-sm text-stone-800 focus:ring-2 focus:ring-cinnabar-700 font-semibold">
+                    <option value="all">All Decks</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+            </div>
+            <!-- Search input -->
+            <div class="relative w-full sm:w-64">
+                <input type="text" id="dict-search" oninput="filterDictionaryList()" placeholder="Search character, radical, pinyin..." class="w-full bg-white border border-stone-300 rounded-xl py-2 pl-9 pr-4 text-xs focus:ring-2 focus:ring-cinnabar-700 focus:outline-none">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-stone-400 text-xs"></i>
+            </div>
+        </div>
+    </div>
+    
+
+            <!-- Output character list -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="dictionary-grid">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer block -->
+    <footer class="bg-stone-900 text-stone-400 border-t-2 border-amber-500 py-6 px-4 mt-12 text-xs">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
+            <div>
+                <h4 class="font-serif text-amber-400 font-bold tracking-widest text-xs uppercase">HANZEE ACADEMY</h4>
+                <p class="text-sm text-stone-500 mt-1">Study Deck, Quiz, and Character Archive Companion For Traditional Hanzi.</p>
+            </div>
+
+            <div class="flex gap-4 text-stone-500">
+                <a href="#" onclick="switchTab('flashcards'); return false;" class="hover:text-amber-400 transition">Deck</a>
+                <a href="#" onclick="switchTab('quiz-lobby'); return false;" class="hover:text-amber-400 transition">Quiz</a>
+                <a href="#" onclick="switchTab('dictionary'); return false;" class="hover:text-amber-400 transition">Characters</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="vocab.js">
+    </script>
+    <script src="script.js">
+    </script>
+
+</body>
+</html>
