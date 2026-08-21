@@ -80,6 +80,21 @@ function playWrongSound() {
     osc.stop(audioCtx.currentTime + 0.3);
 }
 
+// ----- NEW: Quiz history helpers for diversity -----
+function getQuizHistory() {
+    try {
+        return JSON.parse(localStorage.getItem("hanzi_quiz_history")) || [];
+    } catch {
+        return [];
+    }
+}
+
+function setQuizHistory(history) {
+    // Keep only the last 20 entries to prevent unlimited growth
+    const trimmed = history.slice(-20);
+    localStorage.setItem("hanzi_quiz_history", JSON.stringify(trimmed));
+}
+
 window.onload = function() {
     verifyStreakIntegrity();
     updateGlobalStatsUI();
@@ -277,17 +292,27 @@ function restartQuizWithCurrentConfig() {
     initiateQuizExecution();
 }
 
+// ----- UPDATED: Quiz generation with diversity -----
 function initiateQuizExecution() {
     let candidates = [];
-    if (quizLevel === "all"){
+    if (quizLevel === "all") {
         candidates = [...hanziDatabase];
-    }else{
+    } else {
         candidates = hanziDatabase.filter(item => item.level === quizLevel);
     }
     
     if (candidates.length < 4) return;
 
-    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+    // Exclude recently quizzed characters to improve diversity
+    const history = getQuizHistory();
+    let available = candidates.filter(item => !history.includes(item.id));
+
+    // If we have fewer than 10 available, fall back to all candidates (allow repeats)
+    if (available.length < 10) {
+        available = candidates;
+    }
+
+    const shuffled = [...available].sort(() => Math.random() - 0.5);
     activeQuizQuestionsList = shuffled.slice(0, 10);
     
     currentQuestionIndex = 0;
@@ -403,7 +428,7 @@ function submitQuizAnswer(selectedButton, selectedOption, correctItem) {
     sentenceBlock.classList.remove('hidden');
 
     if (isCorrect) {
-        playCorrectSound();   // ✅ Audio feedback for correct
+        playCorrectSound();
         quizScore++;
         selectedButton.classList.remove('bg-white', 'opacity-60', 'border-stone-200');
         selectedButton.classList.add('bg-green-50', 'border-green-600', 'text-green-900', 'opacity-100');
@@ -413,7 +438,7 @@ function submitQuizAnswer(selectedButton, selectedOption, correctItem) {
         document.getElementById('quiz-feedback-title').textContent = "Correct Answer! (答對了)";
         document.getElementById('quiz-feedback-desc').textContent = `${correctItem.hanzi} [${correctItem.pinyin}] - ${correctItem.meaning}`;
     } else {
-        playWrongSound();    // ❌ Audio feedback for wrong
+        playWrongSound();
         selectedButton.classList.remove('bg-white', 'opacity-60', 'border-stone-200');
         selectedButton.classList.add('bg-red-50', 'border-red-600', 'text-red-900', 'opacity-100');
         highlightCorrectAnswerButton(correctItem);
@@ -436,21 +461,22 @@ function triggerTimeoutFailure(correctItem) {
     });
 
     highlightCorrectAnswerButton(correctItem);
-
-    playWrongSound();    // ❌ Audio feedback for timeout (treated as wrong)
+    playWrongSound();
 
     const feedbackBox = document.getElementById('quiz-feedback-box');
     feedbackBox.classList.remove('hidden');
     feedbackBox.className = "rounded-xl p-3.5 border bg-amber-50 border-amber-200 text-amber-900 flex items-start gap-3 transition";
     
+    // --- FIXED: Properly separate into 3 distinct elements ---
     const sentenceBlock = document.getElementById('quiz-feedback-sentence-block');
-    document.getElementById('quiz-feedback-sentence-zh').textContent = `${correctItem.sentence} (${correctItem.sentencePinyin})`;
+    document.getElementById('quiz-feedback-sentence-zh').textContent = correctItem.sentence;
+    document.getElementById('quiz-feedback-sentence-pinyin').textContent = `(${correctItem.sentencePinyin})`;
     document.getElementById('quiz-feedback-sentence-en').textContent = correctItem.sentenceTranslation;
     sentenceBlock.classList.remove('hidden');
 
     document.getElementById('quiz-feedback-icon').innerHTML = `<i class="fa-solid fa-hourglass-end text-amber-700"></i>`;
     document.getElementById('quiz-feedback-title').textContent = "Time Expired!";
-    document.getElementById('quiz-feedback-desc').textContent = `Correct answer was ${correctItem.hanzi}. Speed up next time!`;
+    document.getElementById('quiz-feedback-desc').textContent = `Correct: ${correctItem.hanzi} [${correctItem.pinyin}] meaning: ${correctItem.meaning}. Speed up next time!`;
 
     quizIncorrectList.push(correctItem);
     document.getElementById('quiz-next-btn').classList.remove('hidden');
@@ -479,6 +505,7 @@ function nextQuizQuestion() {
     }
 }
 
+// ----- UPDATED: Stores quiz history after completion -----
 function concludeQuizSession() {
     clearInterval(quizTimerInterval);
     switchTab('quiz-results');
@@ -491,6 +518,12 @@ function concludeQuizSession() {
 
     addXP(totalXP);
     incrementStreak();
+
+    // --- Save recently quizzed IDs to prevent repetition ---
+    const quizzedIds = activeQuizQuestionsList.map(item => item.id);
+    const currentHistory = getQuizHistory();
+    const newHistory = [...currentHistory, ...quizzedIds];
+    setQuizHistory(newHistory);
 
     document.getElementById('res-correct-fraction').textContent = `${quizScore}/10`;
     document.getElementById('res-accuracy-pct').textContent = `${scorePercent}%`;
@@ -712,7 +745,6 @@ function renderPaginationControls(totalPages) {
     pagContainer.appendChild(nextBtn);
 }
 
-// Replace the existing filterDictionaryList function
 function filterDictionaryList() {
     const query = document.getElementById('dict-search').value.toLowerCase().trim();
     const levelFilter = document.getElementById('dict-level-filter').value;
@@ -732,12 +764,9 @@ function filterDictionaryList() {
     renderDictionary(filtered);
 }
 
-// Update window.onload to call filterDictionaryList() 
-// (instead of renderDictionary(hanziDatabase))
 window.onload = function() {
     verifyStreakIntegrity();
     updateGlobalStatsUI();
     filterFlashcardsByLevel("all");
-    filterDictionaryList(); // <-- changed here
+    filterDictionaryList();
 };
-
